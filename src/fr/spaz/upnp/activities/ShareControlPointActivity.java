@@ -1,5 +1,6 @@
 package fr.spaz.upnp.activities;
 
+import java.io.File;
 import java.io.IOException;
 
 import org.teleal.cling.android.AndroidUpnpService;
@@ -31,9 +32,11 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
@@ -41,6 +44,8 @@ import fr.spaz.upnp.R;
 import fr.spaz.upnp.activities.ShareHttpServer.ShareHttpBinder;
 import fr.spaz.upnp.services.ShareContentDirectoryService;
 import fr.spaz.upnp.upnp.UpnpService;
+import fr.spaz.upnp.utils.NanoHTTPD;
+import fr.spaz.upnp.utils.NetworkUtils;
 import fr.spaz.upnp.utils.ShareConstants;
 import fr.spaz.upnp.utils.UPnPException;
 
@@ -57,16 +62,16 @@ public class ShareControlPointActivity extends Activity implements OnSeekBarChan
 
 	private LocalDevice mLocalDevice;
 
-	private ShareHttpBinder mHttpService;
 	private AndroidUpnpService mUpnpService;
-	
-	private HttpServiceConnection mHttpServiceConnection;
+
+	// private HttpServiceConnection mHttpServiceConnection;
 	private UpnpControlPointServiceConnection mUpnpServiceConnection;
 
 	private Uri mMediaUri;
 	private String mDeviceName;
 	private String mUUID;
-	private String mMediaType;
+	private NanoHTTPD mHttpd;
+	private String mPath;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState)
@@ -81,19 +86,43 @@ public class ShareControlPointActivity extends Activity implements OnSeekBarChan
 
 		Bundle callBundle = getIntent().getExtras();
 		mMediaUri = (Uri) callBundle.get(Intent.EXTRA_STREAM);
-		mMediaType = getIntent().getType();
 		mDeviceName = callBundle.getString(ShareConstants.NAME);
 		mUUID = callBundle.getString(ShareConstants.UDN);
 		Log.d(TAG, "uri: " + mMediaUri.toString());
 		Log.d(TAG, "deviceName: " + mDeviceName);
 		Log.d(TAG, "udn: " + mUUID);
 
-		mHttpServiceConnection = new HttpServiceConnection();
+		// mHttpServiceConnection = new HttpServiceConnection();
 		mUpnpServiceConnection = new UpnpControlPointServiceConnection();
 
-		// Start http service
-		final Intent intent = new Intent(this, ShareHttpServer.class);
-		getApplicationContext().bindService(intent, mHttpServiceConnection, Context.BIND_AUTO_CREATE);
+		// // Start http service
+		// final Intent intent = new Intent(this, ShareHttpServer.class);
+		// getApplicationContext().bindService(intent, mHttpServiceConnection, Context.BIND_AUTO_CREATE);
+
+		// Get file path
+		final String[] proj = {MediaStore.MediaColumns.DATA, MediaStore.MediaColumns.MIME_TYPE};
+		final Cursor cursor = getContentResolver().query(mMediaUri, proj, null, null, null);
+		if (cursor.moveToFirst())
+		{
+			mPath = cursor.getString(cursor.getColumnIndex(MediaStore.MediaColumns.DATA));
+			// final String mimetype = cursor.getString(cursor.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE));
+			try
+			{
+				mHttpd = new NanoHTTPD(0, new File("/"));
+			}
+			catch (IOException e)
+			{
+				e.printStackTrace();
+			}
+		}
+		if(null!=cursor)
+		{
+			cursor.close();
+		}
+
+		// Start upnp service
+		final Intent intent = new Intent(ShareControlPointActivity.this, UpnpService.class);
+		getApplicationContext().bindService(intent, mUpnpServiceConnection, Context.BIND_AUTO_CREATE);
 
 	}
 
@@ -105,11 +134,16 @@ public class ShareControlPointActivity extends Activity implements OnSeekBarChan
 		// mUpnpService.getRegistry().removeDevice(mLocalDevice);
 		// Log.i(TAG, "removeDevice");
 		// }
-		if(null!=mHttpService)
+		// if (null != mHttpService)
+		// {
+		// getApplicationContext().unbindService(mHttpServiceConnection);
+		// }
+		if (null != mHttpd)
 		{
-			getApplicationContext().unbindService(mHttpServiceConnection);
+			mHttpd.stop();
+			mHttpd = null;
 		}
-		if(null!=mUpnpService)
+		if (null != mUpnpService)
 		{
 			getApplicationContext().unbindService(mUpnpServiceConnection);
 		}
@@ -156,32 +190,6 @@ public class ShareControlPointActivity extends Activity implements OnSeekBarChan
 		return new LocalDevice(identity, type, details, new LocalService<?>[]{contentDirectoryService, connectionManagerService});
 
 	}
-	
-	private class HttpServiceConnection implements ServiceConnection
-	{
-		
-		@Override
-		public void onServiceConnected(ComponentName className, IBinder binder)
-		{
-			mHttpService = (ShareHttpBinder)binder;
-			mHttpService.serUri(mMediaType, mMediaUri);
-			mHttpService.start();
-			
-//			Log.d(TAG, "url: " + mHttpService.getUrl());
-			
-			// Start upnp service
-			final Intent intent = new Intent(ShareControlPointActivity.this, UpnpService.class);
-			getApplicationContext().bindService(intent, mUpnpServiceConnection, Context.BIND_AUTO_CREATE);
-		}
-
-		@Override
-		public void onServiceDisconnected(ComponentName className)
-		{
-			mHttpService.stop();
-			mHttpService = null;
-		}
-		
-	}
 
 	/**
 	 * 
@@ -198,10 +206,6 @@ public class ShareControlPointActivity extends Activity implements OnSeekBarChan
 
 			try
 			{
-				// // Add the bound local device to the registry
-				// mLocalDevice = createDevice();
-				// mUpnpService.getRegistry().addDevice(createDevice());
-				// Log.i(TAG, "addDevice");
 
 				final RemoteDevice renderer = mUpnpService.getRegistry().getRemoteDevice(UDN.valueOf(mUUID), true);
 				if (null != renderer)
@@ -210,14 +214,17 @@ public class ShareControlPointActivity extends Activity implements OnSeekBarChan
 					if (null != avTransportService)
 					{
 						Log.d(TAG, "launch setAVTransportURI");
-						mUpnpService.getControlPoint().execute(new SetAVTransportURI(new UnsignedIntegerFourBytes(0), avTransportService, mHttpService.getUrl(), "NO METADATA")
+						final String url = String.format("http://%s:%d%s",NetworkUtils.getIp(getBaseContext()), mHttpd.getPort(), mPath);
+						Log.d(TAG, "url: " + url);
+						mUpnpService.getControlPoint().execute(new SetAVTransportURI(new UnsignedIntegerFourBytes(0), avTransportService, url, "NO METADATA")
 						{
 							@SuppressWarnings("rawtypes")
 							@Override
 							public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg)
 							{
 								Log.d(TAG, "setAVTransportURI failure");
-								Log.d(TAG, "operation: " + operation.getStatusCode() + " " + operation.getStatusMessage());
+								Log.d(TAG, "invocation: " + invocation.getFailure().getMessage());
+								// Log.d(TAG, "operation: " + operation.getStatusCode() + " " + operation.getStatusMessage());
 							}
 
 							@SuppressWarnings("rawtypes")
@@ -233,7 +240,8 @@ public class ShareControlPointActivity extends Activity implements OnSeekBarChan
 									public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg)
 									{
 										Log.d(TAG, "play failure");
-										Log.d(TAG, "operation: " + operation.getStatusCode() + " " + operation.getStatusMessage());
+										Log.d(TAG, "invocation: " + invocation.getFailure().getMessage());
+										// Log.d(TAG, "operation: " + operation.getStatusCode() + " " + operation.getStatusMessage());
 									}
 
 									@Override
@@ -262,7 +270,6 @@ public class ShareControlPointActivity extends Activity implements OnSeekBarChan
 				finish();
 			}
 		}
-
 		@Override
 		public void onServiceDisconnected(ComponentName className)
 		{
