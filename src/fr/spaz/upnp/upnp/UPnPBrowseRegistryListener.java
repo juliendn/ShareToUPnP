@@ -6,20 +6,17 @@ import org.teleal.cling.model.meta.RemoteDevice;
 import org.teleal.cling.registry.DefaultRegistryListener;
 import org.teleal.cling.registry.Registry;
 
-
 import android.app.Activity;
-import android.util.Log;
-import android.widget.ArrayAdapter;
 import android.widget.Toast;
+import fr.spaz.upnp.activities.ShareRendererSelectionActivity.UpnpDeviceAdapter;
 
-public class UpnpBrowseRegistryListener extends DefaultRegistryListener
+public class UPnPBrowseRegistryListener extends DefaultRegistryListener
 {
 
-	private static final String TAG = "UpnpBrowseRegistryListener";
-	private ArrayAdapter<UpnpDeviceDisplay> mAdapter;
+	private UpnpDeviceAdapter mAdapter;
 	private Activity mUiThread;
 
-	public UpnpBrowseRegistryListener(Activity uiThread, ArrayAdapter<UpnpDeviceDisplay> adapter)
+	public UPnPBrowseRegistryListener(Activity uiThread, UpnpDeviceAdapter adapter)
 	{
 		mUiThread = uiThread;
 		mAdapter = adapter;
@@ -70,13 +67,13 @@ public class UpnpBrowseRegistryListener extends DefaultRegistryListener
 
 	public void deviceAdded(final Device<?, ?, ?> device)
 	{
-		if("MediaRenderer".equals(device.getType().getType()))
+		if ("MediaRenderer".equals(device.getType().getType()))
 		{
 			mUiThread.runOnUiThread(new Runnable()
 			{
 				public void run()
 				{
-					UpnpDeviceDisplay d = new UpnpDeviceDisplay(device);
+					UPnPDeviceDisplay d = new UPnPDeviceDisplay(device);
 					int position = mAdapter.getPosition(d);
 					if (position >= 0)
 					{
@@ -95,13 +92,13 @@ public class UpnpBrowseRegistryListener extends DefaultRegistryListener
 
 	public void deviceRemoved(final Device<?, ?, ?> device)
 	{
-		if("MediaRenderer".equals(device.getType().getType()))
+		if ("MediaRenderer".equals(device.getType().getType()))
 		{
 			mUiThread.runOnUiThread(new Runnable()
 			{
 				public void run()
 				{
-					mAdapter.remove(new UpnpDeviceDisplay(device));
+					mAdapter.remove(new UPnPDeviceDisplay(device));
 				}
 			});
 		}

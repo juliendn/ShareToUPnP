@@ -1,4 +1,4 @@
-package fr.spaz.upnp.actions.avtransport;
+package fr.spaz.upnp.services.avtransport.actions;
 
 import org.teleal.cling.model.action.ActionInvocation;
 import org.teleal.cling.model.message.UpnpResponse;

@@ -4,7 +4,7 @@ import org.teleal.cling.android.AndroidUpnpServiceImpl;
 
 import android.util.Log;
 
-public class UpnpService extends AndroidUpnpServiceImpl
+public class UPnPService extends AndroidUpnpServiceImpl
 {
 
 	private static final String TAG = "UpnpService";

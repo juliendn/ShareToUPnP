@@ -41,9 +41,8 @@ import android.util.Log;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import fr.spaz.upnp.R;
-import fr.spaz.upnp.activities.ShareHttpServer.ShareHttpBinder;
 import fr.spaz.upnp.services.ShareContentDirectoryService;
-import fr.spaz.upnp.upnp.UpnpService;
+import fr.spaz.upnp.upnp.UPnPService;
 import fr.spaz.upnp.utils.NanoHTTPD;
 import fr.spaz.upnp.utils.NetworkUtils;
 import fr.spaz.upnp.utils.ShareConstants;
@@ -121,7 +120,7 @@ public class ShareControlPointActivity extends Activity implements OnSeekBarChan
 		}
 
 		// Start upnp service
-		final Intent intent = new Intent(ShareControlPointActivity.this, UpnpService.class);
+		final Intent intent = new Intent(ShareControlPointActivity.this, UPnPService.class);
 		getApplicationContext().bindService(intent, mUpnpServiceConnection, Context.BIND_AUTO_CREATE);
 
 	}

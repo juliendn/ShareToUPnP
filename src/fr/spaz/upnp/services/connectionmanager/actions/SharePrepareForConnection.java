@@ -1,4 +1,4 @@
-package fr.spaz.upnp.actions.connectionmanager;
+package fr.spaz.upnp.services.connectionmanager.actions;
 
 import org.teleal.cling.controlpoint.ControlPoint;
 import org.teleal.cling.model.ServiceReference;
