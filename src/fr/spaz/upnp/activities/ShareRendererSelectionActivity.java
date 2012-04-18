@@ -129,86 +129,65 @@ public class ShareRendererSelectionActivity extends SherlockFragmentActivity imp
 	@Override
 	public void onItemClick(AdapterView<?> listview, View view, int position, long id)
 	{
-		try
+		if (null != mUpnpService)
 		{
-			if (null != mUpnpService)
+			final UPnPDeviceDisplay deviceDisplay = (UPnPDeviceDisplay) listview.getItemAtPosition(position);
+			final Device<?, ?, ?> renderer = deviceDisplay.getDevice();
+			final Service<?, ?> avTransportService = renderer.findService(new UDAServiceType("AVTransport"));
+
+			if (null != avTransportService)
 			{
-				final UPnPDeviceDisplay deviceDisplay = (UPnPDeviceDisplay) listview.getItemAtPosition(position);
-				final Device<?, ?, ?> renderer = deviceDisplay.getDevice();
-				final Service<?, ?> avTransportService = renderer.findService(new UDAServiceType("AVTransport"));
 
-				if (null != avTransportService)
+				// execute setAvTransportURI
+				Log.i(TAG, "launch setAVTransportURI");
+				final String url = String.format("http://%s:%d%s", NetworkUtils.getIp(getBaseContext()), mHttpd.getPort(), mPath);
+				Log.i(TAG, "url: " + url);
+				mUpnpService.getControlPoint().execute(new SetAVTransportURI(new UnsignedIntegerFourBytes(0), avTransportService, url, "NO METADATA")
 				{
-					
-					// execute setAvTransportURI
-					Log.i(TAG, "launch setAVTransportURI");
-					final String url = String.format("http://%s:%d%s", NetworkUtils.getIp(getBaseContext()), mHttpd.getPort(), mPath);
-					Log.i(TAG, "url: " + url);
-					mUpnpService.getControlPoint().execute(new SetAVTransportURI(new UnsignedIntegerFourBytes(0), avTransportService, url, "NO METADATA")
+					@SuppressWarnings("rawtypes")
+					@Override
+					public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg)
 					{
-						@SuppressWarnings("rawtypes")
-						@Override
-						public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg)
-						{
-							Log.i(TAG, "setAVTransportURI failure");
-							Log.i(TAG, "invocation: " + invocation.getFailure().getMessage());
-							// Log.i(TAG, "operation: " + operation.getStatusCode() + " " + operation.getStatusMessage());
-						}
+						Log.i(TAG, "setAVTransportURI failure");
+						Log.i(TAG, "invocation: " + invocation.getFailure().getMessage());
+						// Log.i(TAG, "operation: " + operation.getStatusCode() + " " + operation.getStatusMessage());
+					}
 
-						@SuppressWarnings("rawtypes")
-						@Override
-						public void success(ActionInvocation invocation)
-						{
-							super.success(invocation);
+					@SuppressWarnings("rawtypes")
+					@Override
+					public void success(ActionInvocation invocation)
+					{
+						super.success(invocation);
 
-							Log.i(TAG, "setAVTransportURI success");
-							Log.i(TAG, "launch play");
-							mUpnpService.getControlPoint().execute(new Play(new UnsignedIntegerFourBytes(0), avTransportService, "1")
+						Log.i(TAG, "setAVTransportURI success");
+						Log.i(TAG, "launch play");
+						mUpnpService.getControlPoint().execute(new Play(new UnsignedIntegerFourBytes(0), avTransportService, "1")
+						{
+							@Override
+							public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg)
 							{
-								@Override
-								public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg)
-								{
-									Log.i(TAG, "play failure");
-									Log.i(TAG, "invocation: " + invocation.getFailure().getMessage());
-									// Log.i(TAG, "operation: " + operation.getStatusCode() + " " + operation.getStatusMessage());
-								}
+								Log.i(TAG, "play failure");
+								Log.i(TAG, "invocation: " + invocation.getFailure().getMessage());
+								// Log.i(TAG, "operation: " + operation.getStatusCode() + " " + operation.getStatusMessage());
+							}
 
-								@Override
-								public void success(ActionInvocation invocation)
-								{
-									super.success(invocation);
-									Log.i(TAG, "play success");
+							@Override
+							public void success(ActionInvocation invocation)
+							{
+								super.success(invocation);
+								Log.i(TAG, "play success");
 
-									mCurrentDevice = renderer;
+								mCurrentDevice = renderer;
 
-									FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
-									ft.replace(R.id.content, new ShareControlFragment());
-									ft.commit();
-								}
-							});
-						}
-					});
-				}
-				else
-				{
-					throw new UPnPException("No AVTransportService found");
-				}
-
-				// Log.i(TAG, "start ControlPointActivity");
-				// Intent intent = new Intent(this, ShareControlPointActivity.class);
-				//
-				// intent.setType(getIntent().getType());
-				// intent.putExtra(Intent.EXTRA_STREAM, getIntent().getParcelableExtra(Intent.EXTRA_STREAM));
-				// intent.putExtra(ShareConstants.NAME, deviceDisplay.toString());
-				// intent.putExtra(ShareConstants.UDN, renderer.getIdentity().getUdn().toString());
-				//
-				// startActivity(intent);
-
+								FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
+								ft.replace(R.id.content, new ShareControlFragment());
+								ft.commit();
+							}
+						});
+					}
+				});
 			}
-		}
-		catch (UPnPException e)
-		{
-			e.printStackTrace();
+
 		}
 	}
 
