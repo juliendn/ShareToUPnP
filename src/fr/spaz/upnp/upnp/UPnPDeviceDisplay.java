@@ -2,11 +2,11 @@ package fr.spaz.upnp.upnp;
 
 import org.teleal.cling.model.meta.Device;
 
-public class UpnpDeviceDisplay
+public class UPnPDeviceDisplay
 {
 	Device<?, ?, ?> device;
 
-	public UpnpDeviceDisplay(Device<?, ?, ?> device)
+	public UPnPDeviceDisplay(Device<?, ?, ?> device)
 	{
 		this.device = device;
 	}
@@ -23,7 +23,7 @@ public class UpnpDeviceDisplay
 			return true;
 		if (o == null || getClass() != o.getClass())
 			return false;
-		UpnpDeviceDisplay that = (UpnpDeviceDisplay) o;
+		UPnPDeviceDisplay that = (UPnPDeviceDisplay) o;
 		return device.equals(that.device);
 	}
 

@@ -6,20 +6,19 @@ import org.teleal.cling.model.meta.RemoteDevice;
 import org.teleal.cling.registry.DefaultRegistryListener;
 import org.teleal.cling.registry.Registry;
 
-
 import android.app.Activity;
-import android.util.Log;
 import android.widget.ArrayAdapter;
 import android.widget.Toast;
 
-public class UpnpBrowseRegistryListener extends DefaultRegistryListener
+public class UPnPBrowseRegistryListener extends DefaultRegistryListener
 {
 
+	@SuppressWarnings("unused")
 	private static final String TAG = "UpnpBrowseRegistryListener";
-	private ArrayAdapter<UpnpDeviceDisplay> mAdapter;
+	private ArrayAdapter<UPnPDeviceDisplay> mAdapter;
 	private Activity mUiThread;
 
-	public UpnpBrowseRegistryListener(Activity uiThread, ArrayAdapter<UpnpDeviceDisplay> adapter)
+	public UPnPBrowseRegistryListener(Activity uiThread, ArrayAdapter<UPnPDeviceDisplay> adapter)
 	{
 		mUiThread = uiThread;
 		mAdapter = adapter;
@@ -76,7 +75,7 @@ public class UpnpBrowseRegistryListener extends DefaultRegistryListener
 			{
 				public void run()
 				{
-					UpnpDeviceDisplay d = new UpnpDeviceDisplay(device);
+					UPnPDeviceDisplay d = new UPnPDeviceDisplay(device);
 					int position = mAdapter.getPosition(d);
 					if (position >= 0)
 					{
@@ -101,7 +100,7 @@ public class UpnpBrowseRegistryListener extends DefaultRegistryListener
 			{
 				public void run()
 				{
-					mAdapter.remove(new UpnpDeviceDisplay(device));
+					mAdapter.remove(new UPnPDeviceDisplay(device));
 				}
 			});
 		}

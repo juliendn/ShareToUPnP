@@ -46,7 +46,7 @@
         </activity>
 
         <service android:name=".activities.ShareHttpServer" />
-        <service android:name=".upnp.UpnpService" />
+        <service android:name=".upnp.UPnPService" />
     </application>
 
 </manifest>
