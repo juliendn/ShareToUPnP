@@ -14,7 +14,6 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URLEncoder;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.Hashtable;
@@ -23,6 +22,8 @@ import java.util.Properties;
 import java.util.StringTokenizer;
 import java.util.TimeZone;
 import java.util.Vector;
+
+import android.net.Uri;
 
 /**
  * A simple, tiny, nicely embeddable HTTP 1.0 (partially 1.1) server in Java
@@ -74,7 +75,7 @@ public class NanoHTTPD
 	// ==================================================
 	// API parts
 	// ==================================================
-	
+
 	public int getPort()
 	{
 		return myServerSocket.getLocalPort();
@@ -100,12 +101,8 @@ public class NanoHTTPD
 	{
 		myOut.println(method + " '" + uri + "' ");
 
-		Enumeration e = header.propertyNames();
-		while (e.hasMoreElements())
-		{
-			String value = (String) e.nextElement();
-			myOut.println("  HDR: '" + value + "' = '" + header.getProperty(value) + "'");
-		}
+		Enumeration<?> e = null;
+		
 		e = parms.propertyNames();
 		while (e.hasMoreElements())
 		{
@@ -119,7 +116,232 @@ public class NanoHTTPD
 			myOut.println("  UPLOADED: '" + value + "' = '" + files.getProperty(value) + "'");
 		}
 
-		return serveFile(uri, header, myRootDir, true);
+		final Response res = serveFile(uri, header, myRootDir, true);
+		
+		e = header.propertyNames();
+		while (e.hasMoreElements())
+		{
+			String value = (String) e.nextElement();
+			myOut.println("  HDR: '" + value + "' = '" + header.getProperty(value) + "'");
+
+			if ("getcontentfeatures.dlna.org".equals(value) && "1".equals(header.getProperty(value)))
+			{
+				res.addHeader("contentFeatures.dlna.org", "DLNA.ORG_OP=10;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000");
+			}
+			else if ("getmediainfo.sec".equals(value) && "1".equals(header.getProperty(value)))
+			{
+				res.addHeader("transferMode.dlna.org", "Interactive");
+			}
+
+		}
+		res.printHeaders();
+
+		return res;
+	}
+
+	// ==================================================
+	// File server code
+	// ==================================================
+
+	/**
+	 * Serves file from homeDir and its' subdirectories (only).
+	 * Uses only URI, ignores all headers and HTTP parameters.
+	 */
+	public Response serveFile(String uri, Properties header, File homeDir, boolean allowDirectoryListing)
+	{
+		Response res = null;
+
+		// Make sure we won't die of an exception later
+		if (!homeDir.isDirectory())
+			res = new Response(HTTP_INTERNALERROR, MIME_PLAINTEXT, "INTERNAL ERRROR: serveFile(): given homeDir is not a directory.");
+
+		if (res == null)
+		{
+			// Remove URL arguments
+			uri = uri.trim().replace(File.separatorChar, '/');
+			if (uri.indexOf('?') >= 0)
+				uri = uri.substring(0, uri.indexOf('?'));
+
+			// Prohibit getting out of current directory
+			if (uri.startsWith("..") || uri.endsWith("..") || uri.indexOf("../") >= 0)
+				res = new Response(HTTP_FORBIDDEN, MIME_PLAINTEXT, "FORBIDDEN: Won't serve ../ for security reasons.");
+		}
+
+		File f = new File(homeDir, uri);
+		if (res == null && !f.exists())
+			res = new Response(HTTP_NOTFOUND, MIME_PLAINTEXT, "Error 404, file not found.");
+
+		// List the directory, if necessary
+		if (res == null && f.isDirectory())
+		{
+			// Browsers get confused without '/' after the
+			// directory, send a redirect.
+			if (!uri.endsWith("/"))
+			{
+				uri += "/";
+				res = new Response(HTTP_REDIRECT, MIME_HTML, "<html><body>Redirected: <a href=\"" + uri + "\">" + uri + "</a></body></html>");
+				res.addHeader("Location", uri);
+			}
+
+			if (res == null)
+			{
+				// First try index.html and index.htm
+				if (new File(f, "index.html").exists())
+					f = new File(homeDir, uri + "/index.html");
+				else if (new File(f, "index.htm").exists())
+					f = new File(homeDir, uri + "/index.htm");
+				// No index file, list the directory if it is readable
+				else if (allowDirectoryListing && f.canRead())
+				{
+					String[] files = f.list();
+					String msg = "<html><body><h1>Directory " + uri + "</h1><br/>";
+
+					if (uri.length() > 1)
+					{
+						String u = uri.substring(0, uri.length() - 1);
+						int slash = u.lastIndexOf('/');
+						if (slash >= 0 && slash < u.length())
+							msg += "<b><a href=\"" + uri.substring(0, slash + 1) + "\">..</a></b><br/>";
+					}
+
+					if (files != null)
+					{
+						for (int i = 0; i < files.length; ++i)
+						{
+							File curFile = new File(f, files[i]);
+							boolean dir = curFile.isDirectory();
+							if (dir)
+							{
+								msg += "<b>";
+								files[i] += "/";
+							}
+
+							msg += "<a href=\"" + encodeUri(uri + files[i]) + "\">" + files[i] + "</a>";
+
+							// Show file size
+							if (curFile.isFile())
+							{
+								long len = curFile.length();
+								msg += " &nbsp;<font size=2>(";
+								if (len < 1024)
+									msg += len + " bytes";
+								else if (len < 1024 * 1024)
+									msg += len / 1024 + "." + (len % 1024 / 10 % 100) + " KB";
+								else
+									msg += len / (1024 * 1024) + "." + len % (1024 * 1024) / 10 % 100 + " MB";
+
+								msg += ")</font>";
+							}
+							msg += "<br/>";
+							if (dir)
+								msg += "</b>";
+						}
+					}
+					msg += "</body></html>";
+					res = new Response(HTTP_OK, MIME_HTML, msg);
+				}
+				else
+				{
+					res = new Response(HTTP_FORBIDDEN, MIME_PLAINTEXT, "FORBIDDEN: No directory listing.");
+				}
+			}
+		}
+
+		try
+		{
+			if (res == null)
+			{
+				// Get MIME type from file name extension, if possible
+				String mime = null;
+				int dot = f.getCanonicalPath().lastIndexOf('.');
+				if (dot >= 0)
+					mime = (String) theMimeTypes.get(f.getCanonicalPath().substring(dot + 1).toLowerCase());
+				if (mime == null)
+					mime = MIME_DEFAULT_BINARY;
+
+				// Calculate etag
+				String etag = Integer.toHexString((f.getAbsolutePath() + f.lastModified() + "" + f.length()).hashCode());
+
+				// Support (simple) skipping:
+				long startFrom = 0;
+				long endAt = -1;
+				String range = header.getProperty("range");
+				if (range != null)
+				{
+					if (range.startsWith("bytes="))
+					{
+						range = range.substring("bytes=".length());
+						int minus = range.indexOf('-');
+						try
+						{
+							if (minus > 0)
+							{
+								startFrom = Long.parseLong(range.substring(0, minus));
+								endAt = Long.parseLong(range.substring(minus + 1));
+							}
+						}
+						catch (NumberFormatException nfe)
+						{
+						}
+					}
+				}
+
+				// Change return code and add Content-Range header when skipping is requested
+				long fileLen = f.length();
+				if (range != null && startFrom >= 0)
+				{
+					if (startFrom >= fileLen)
+					{
+						res = new Response(HTTP_RANGE_NOT_SATISFIABLE, MIME_PLAINTEXT, "");
+						res.addHeader("Content-Range", "bytes 0-0/" + fileLen);
+						res.addHeader("ETag", etag);
+					}
+					else
+					{
+						if (endAt < 0)
+							endAt = fileLen - 1;
+						long newLen = endAt - startFrom + 1;
+						if (newLen < 0)
+							newLen = 0;
+
+						final long dataLen = newLen;
+						FileInputStream fis = new FileInputStream(f)
+						{
+							public int available() throws IOException
+							{
+								return (int) dataLen;
+							}
+						};
+						fis.skip(startFrom);
+
+						res = new Response(HTTP_PARTIALCONTENT, mime, fis);
+						res.addHeader("Content-Length", "" + dataLen);
+						res.addHeader("Content-Range", "bytes " + startFrom + "-" + endAt + "/" + fileLen);
+						res.addHeader("ETag", etag);
+					}
+				}
+				else
+				{
+					if (etag.equals(header.getProperty("if-none-match")))
+						res = new Response(HTTP_NOTMODIFIED, mime, "");
+					else
+					{
+						res = new Response(HTTP_OK, mime, new FileInputStream(f));
+						res.addHeader("Content-Length", "" + fileLen);
+						res.addHeader("ETag", etag);
+//						res.addHeader("transferMode.dlna.org", "Interactive");
+//						res.addHeader("contentFeatures.dlna.org", "DLNA.ORG_OP=10;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000");
+					}
+				}
+			}
+		}
+		catch (IOException ioe)
+		{
+			res = new Response(HTTP_FORBIDDEN, MIME_PLAINTEXT, "FORBIDDEN: Reading file failed.");
+		}
+
+		res.addHeader("Accept-Ranges", "bytes"); // Announce that the file server accepts partial content requestes
+		return res;
 	}
 
 	/**
@@ -170,6 +392,17 @@ public class NanoHTTPD
 		public void addHeader(String name, String value)
 		{
 			header.put(name, value);
+		}
+
+		public void printHeaders()
+		{
+			myOut.println("OUT");
+			Enumeration<?> e = header.propertyNames();
+			while (e.hasMoreElements())
+			{
+				String value = (String) e.nextElement();
+				myOut.println("  HDR: '" + value + "' = '" + header.getProperty(value) + "'");
+			}
 		}
 
 		/**
@@ -624,7 +857,7 @@ public class NanoHTTPD
 		{
 			int matchcount = 0;
 			int matchbyte = -1;
-			Vector matchbytes = new Vector();
+			Vector<Integer> matchbytes = new Vector<Integer>();
 			for (int i = 0; i < b.length; i++)
 			{
 				if (b[i] == boundary[matchcount])
@@ -785,7 +1018,7 @@ public class NanoHTTPD
 
 				if (header != null)
 				{
-					Enumeration e = header.keys();
+					Enumeration<?> e = header.keys();
 					while (e.hasMoreElements())
 					{
 						String key = (String) e.nextElement();
@@ -848,7 +1081,8 @@ public class NanoHTTPD
 				newUri += "%20";
 			else
 			{
-				newUri += URLEncoder.encode(tok);
+				// newUri += URLEncoder.encode(tok);
+				newUri += Uri.encode(tok);
 				// For Java 1.4 you'll want to use this instead:
 				// try { newUri += URLEncoder.encode( tok, "UTF-8" ); } catch ( java.io.UnsupportedEncodingException uee ) {}
 			}
@@ -866,211 +1100,12 @@ public class NanoHTTPD
 	// ==================================================
 
 	/**
-	 * Serves file from homeDir and its' subdirectories (only).
-	 * Uses only URI, ignores all headers and HTTP parameters.
-	 */
-	public Response serveFile(String uri, Properties header, File homeDir, boolean allowDirectoryListing)
-	{
-		Response res = null;
-
-		// Make sure we won't die of an exception later
-		if (!homeDir.isDirectory())
-			res = new Response(HTTP_INTERNALERROR, MIME_PLAINTEXT, "INTERNAL ERRROR: serveFile(): given homeDir is not a directory.");
-
-		if (res == null)
-		{
-			// Remove URL arguments
-			uri = uri.trim().replace(File.separatorChar, '/');
-			if (uri.indexOf('?') >= 0)
-				uri = uri.substring(0, uri.indexOf('?'));
-
-			// Prohibit getting out of current directory
-			if (uri.startsWith("..") || uri.endsWith("..") || uri.indexOf("../") >= 0)
-				res = new Response(HTTP_FORBIDDEN, MIME_PLAINTEXT, "FORBIDDEN: Won't serve ../ for security reasons.");
-		}
-
-		File f = new File(homeDir, uri);
-		if (res == null && !f.exists())
-			res = new Response(HTTP_NOTFOUND, MIME_PLAINTEXT, "Error 404, file not found.");
-
-		// List the directory, if necessary
-		if (res == null && f.isDirectory())
-		{
-			// Browsers get confused without '/' after the
-			// directory, send a redirect.
-			if (!uri.endsWith("/"))
-			{
-				uri += "/";
-				res = new Response(HTTP_REDIRECT, MIME_HTML, "<html><body>Redirected: <a href=\"" + uri + "\">" + uri + "</a></body></html>");
-				res.addHeader("Location", uri);
-			}
-
-			if (res == null)
-			{
-				// First try index.html and index.htm
-				if (new File(f, "index.html").exists())
-					f = new File(homeDir, uri + "/index.html");
-				else if (new File(f, "index.htm").exists())
-					f = new File(homeDir, uri + "/index.htm");
-				// No index file, list the directory if it is readable
-				else if (allowDirectoryListing && f.canRead())
-				{
-					String[] files = f.list();
-					String msg = "<html><body><h1>Directory " + uri + "</h1><br/>";
-
-					if (uri.length() > 1)
-					{
-						String u = uri.substring(0, uri.length() - 1);
-						int slash = u.lastIndexOf('/');
-						if (slash >= 0 && slash < u.length())
-							msg += "<b><a href=\"" + uri.substring(0, slash + 1) + "\">..</a></b><br/>";
-					}
-
-					if (files != null)
-					{
-						for (int i = 0; i < files.length; ++i)
-						{
-							File curFile = new File(f, files[i]);
-							boolean dir = curFile.isDirectory();
-							if (dir)
-							{
-								msg += "<b>";
-								files[i] += "/";
-							}
-
-							msg += "<a href=\"" + encodeUri(uri + files[i]) + "\">" + files[i] + "</a>";
-
-							// Show file size
-							if (curFile.isFile())
-							{
-								long len = curFile.length();
-								msg += " &nbsp;<font size=2>(";
-								if (len < 1024)
-									msg += len + " bytes";
-								else if (len < 1024 * 1024)
-									msg += len / 1024 + "." + (len % 1024 / 10 % 100) + " KB";
-								else
-									msg += len / (1024 * 1024) + "." + len % (1024 * 1024) / 10 % 100 + " MB";
-
-								msg += ")</font>";
-							}
-							msg += "<br/>";
-							if (dir)
-								msg += "</b>";
-						}
-					}
-					msg += "</body></html>";
-					res = new Response(HTTP_OK, MIME_HTML, msg);
-				}
-				else
-				{
-					res = new Response(HTTP_FORBIDDEN, MIME_PLAINTEXT, "FORBIDDEN: No directory listing.");
-				}
-			}
-		}
-
-		try
-		{
-			if (res == null)
-			{
-				// Get MIME type from file name extension, if possible
-				String mime = null;
-				int dot = f.getCanonicalPath().lastIndexOf('.');
-				if (dot >= 0)
-					mime = (String) theMimeTypes.get(f.getCanonicalPath().substring(dot + 1).toLowerCase());
-				if (mime == null)
-					mime = MIME_DEFAULT_BINARY;
-
-				// Calculate etag
-				String etag = Integer.toHexString((f.getAbsolutePath() + f.lastModified() + "" + f.length()).hashCode());
-
-				// Support (simple) skipping:
-				long startFrom = 0;
-				long endAt = -1;
-				String range = header.getProperty("range");
-				if (range != null)
-				{
-					if (range.startsWith("bytes="))
-					{
-						range = range.substring("bytes=".length());
-						int minus = range.indexOf('-');
-						try
-						{
-							if (minus > 0)
-							{
-								startFrom = Long.parseLong(range.substring(0, minus));
-								endAt = Long.parseLong(range.substring(minus + 1));
-							}
-						}
-						catch (NumberFormatException nfe)
-						{
-						}
-					}
-				}
-
-				// Change return code and add Content-Range header when skipping is requested
-				long fileLen = f.length();
-				if (range != null && startFrom >= 0)
-				{
-					if (startFrom >= fileLen)
-					{
-						res = new Response(HTTP_RANGE_NOT_SATISFIABLE, MIME_PLAINTEXT, "");
-						res.addHeader("Content-Range", "bytes 0-0/" + fileLen);
-						res.addHeader("ETag", etag);
-					}
-					else
-					{
-						if (endAt < 0)
-							endAt = fileLen - 1;
-						long newLen = endAt - startFrom + 1;
-						if (newLen < 0)
-							newLen = 0;
-
-						final long dataLen = newLen;
-						FileInputStream fis = new FileInputStream(f)
-						{
-							public int available() throws IOException
-							{
-								return (int) dataLen;
-							}
-						};
-						fis.skip(startFrom);
-
-						res = new Response(HTTP_PARTIALCONTENT, mime, fis);
-						res.addHeader("Content-Length", "" + dataLen);
-						res.addHeader("Content-Range", "bytes " + startFrom + "-" + endAt + "/" + fileLen);
-						res.addHeader("ETag", etag);
-					}
-				}
-				else
-				{
-					if (etag.equals(header.getProperty("if-none-match")))
-						res = new Response(HTTP_NOTMODIFIED, mime, "");
-					else
-					{
-						res = new Response(HTTP_OK, mime, new FileInputStream(f));
-						res.addHeader("Content-Length", "" + fileLen);
-						res.addHeader("ETag", etag);
-					}
-				}
-			}
-		}
-		catch (IOException ioe)
-		{
-			res = new Response(HTTP_FORBIDDEN, MIME_PLAINTEXT, "FORBIDDEN: Reading file failed.");
-		}
-
-		res.addHeader("Accept-Ranges", "bytes"); // Announce that the file server accepts partial content requestes
-		return res;
-	}
-
-	/**
 	 * Hashtable mapping (String)FILENAME_EXTENSION -> (String)MIME_TYPE
 	 */
-	private static Hashtable theMimeTypes = new Hashtable();
+	private static Hashtable<String, String> theMimeTypes = new Hashtable<String, String>();
 	static
 	{
-		StringTokenizer st = new StringTokenizer("css		text/css " + "htm		text/html " + "html		text/html " + "xml		text/xml " + "txt		text/plain " + "asc		text/plain " + "gif		image/gif " + "jpg		image/jpeg " + "jpeg		image/jpeg " + "png		image/png " + "mp3		audio/mpeg " + "m3u		audio/mpeg-url " + "mp4		video/mp4 " + "ogv		video/ogg " + "flv		video/x-flv " + "mov		video/quicktime " + "swf		application/x-shockwave-flash " + "js			application/javascript " + "pdf		application/pdf " + "doc		application/msword " + "ogg		application/x-ogg " + "zip		application/octet-stream " + "exe		application/octet-stream " + "class		application/octet-stream ");
+		StringTokenizer st = new StringTokenizer("css		text/css " + "htm		text/html " + "html		text/html " + "xml		text/xml " + "txt		text/plain " + "asc		text/plain " + "gif		image/gif " + "jpg		image/jpeg " + "jpeg		image/jpeg " + "png		image/png " + "mp3		audio/mpeg " + "m3u		audio/mpeg-url " + "mp4		video/mp4 " + "ogv		video/ogg " + "flv		video/x-flv " + "mov		video/quicktime " + "gp		video/3gpp " + "swf		application/x-shockwave-flash " + "js		application/javascript " + "pdf		application/pdf " + "doc		application/msword " + "ogg		application/x-ogg " + "zip		application/octet-stream " + "exe		application/octet-stream " + "class	application/octet-stream ");
 		while (st.hasMoreTokens())
 			theMimeTypes.put(st.nextToken(), st.nextToken());
 	}

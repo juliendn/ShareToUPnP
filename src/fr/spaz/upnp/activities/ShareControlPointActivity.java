@@ -169,27 +169,27 @@ public class ShareControlPointActivity extends Activity implements OnSeekBarChan
 
 	}
 
-	@SuppressWarnings("unused")
-	private LocalDevice createDevice() throws ValidationException, LocalServiceBindingException, IOException
-	{
-
-		DeviceIdentity identity = new DeviceIdentity(UDN.uniqueSystemIdentifier("ShareToUPnP"));
-
-		DeviceType type = new UDADeviceType("MediaServer", 1);
-
-		DeviceDetails details = new DeviceDetails("ShareToUPnP_Server", new ManufacturerDetails("Spaz"), new ModelDetails("Android", "ShareToUPnP Media Server", "v1"));
-
-		@SuppressWarnings("unchecked")
-		LocalService<ShareContentDirectoryService> contentDirectoryService = new AnnotationLocalServiceBinder().read(ShareContentDirectoryService.class);
-		contentDirectoryService.setManager(new DefaultServiceManager<ShareContentDirectoryService>(contentDirectoryService, ShareContentDirectoryService.class));
-
-		@SuppressWarnings("unchecked")
-		LocalService<ConnectionManagerService> connectionManagerService = new AnnotationLocalServiceBinder().read(ConnectionManagerService.class);
-		connectionManagerService.setManager(new DefaultServiceManager<ConnectionManagerService>(connectionManagerService, ConnectionManagerService.class));
-
-		return new LocalDevice(identity, type, details, new LocalService<?>[]{contentDirectoryService, connectionManagerService});
-
-	}
+//	@SuppressWarnings("unused")
+//	private LocalDevice createDevice() throws ValidationException, LocalServiceBindingException, IOException
+//	{
+//
+//		DeviceIdentity identity = new DeviceIdentity(UDN.uniqueSystemIdentifier("ShareToUPnP"));
+//
+//		DeviceType type = new UDADeviceType("MediaServer", 1);
+//
+//		DeviceDetails details = new DeviceDetails("ShareToUPnP_Server", new ManufacturerDetails("Spaz"), new ModelDetails("Android", "ShareToUPnP Media Server", "v1"));
+//
+//		@SuppressWarnings("unchecked")
+//		LocalService<ShareContentDirectoryService> contentDirectoryService = new AnnotationLocalServiceBinder().read(ShareContentDirectoryService.class);
+//		contentDirectoryService.setManager(new DefaultServiceManager<ShareContentDirectoryService>(contentDirectoryService, ShareContentDirectoryService.class));
+//
+//		@SuppressWarnings("unchecked")
+//		LocalService<ConnectionManagerService> connectionManagerService = new AnnotationLocalServiceBinder().read(ConnectionManagerService.class);
+//		connectionManagerService.setManager(new DefaultServiceManager<ConnectionManagerService>(connectionManagerService, ConnectionManagerService.class));
+//
+//		return new LocalDevice(identity, type, details, new LocalService<?>[]{contentDirectoryService, connectionManagerService});
+//
+//	}
 
 	/**
 	 * 
@@ -270,6 +270,7 @@ public class ShareControlPointActivity extends Activity implements OnSeekBarChan
 				finish();
 			}
 		}
+		
 		@Override
 		public void onServiceDisconnected(ComponentName className)
 		{
