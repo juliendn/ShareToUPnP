@@ -41,7 +41,8 @@ public class ShareRendererSelectionFragment extends SherlockListFragment
 			mRegistryListener.deviceAdded(device);
 		}
 		service.getRegistry().addListener(mRegistryListener);
-		service.getControlPoint().search(SEARCH_TIME);
+//		service.getControlPoint().search(SEARCH_TIME);
+		service.getControlPoint().search();
 	}
 	
 	@Override

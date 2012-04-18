@@ -37,7 +37,7 @@ public class ShareSetAVTransportURI extends SetAVTransportURI
 	@Override
 	public void success(ActionInvocation invocation)
 	{
-		Log.d(TAG, "success");
+		Log.i(TAG, "success");
 		super.success(invocation);
 	}
 
@@ -45,9 +45,9 @@ public class ShareSetAVTransportURI extends SetAVTransportURI
 	@Override
 	public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg)
 	{
-		Log.d(TAG, "failure");
-		Log.d(TAG, "operation: " + operation.getStatusCode() + " " + operation.getStatusMessage());
-		Log.d(TAG, "defaultMsg: " + defaultMsg);
+		Log.i(TAG, "failure");
+		Log.i(TAG, "operation: " + operation.getStatusCode() + " " + operation.getStatusMessage());
+		Log.i(TAG, "defaultMsg: " + defaultMsg);
 	}
 
 }

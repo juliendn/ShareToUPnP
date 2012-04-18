@@ -29,7 +29,7 @@ public class ShareGetProtocolInfo extends GetProtocolInfo
 	@Override
 	public void received(ActionInvocation actionInvocation, ProtocolInfos sinkProtocolInfos, ProtocolInfos sourceProtocolInfos)
 	{
-		Log.d(TAG, "received");
+		Log.i(TAG, "received");
 		// TODO: Check if mimetype is in sinkProtocolInfos
 	}
 
@@ -37,7 +37,7 @@ public class ShareGetProtocolInfo extends GetProtocolInfo
 	@Override
 	public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg)
 	{
-		Log.d(TAG, "failure");
+		Log.i(TAG, "failure");
 	}
 
 	public static ServiceType getServiceType()

@@ -17,7 +17,7 @@
         <activity
             android:name=".activities.ShareRendererSelectionActivity"
             android:label="@string/app_name"
-            android:theme="@android:style/Theme.Holo" >
+            android:theme="@android:style/Theme.Holo.Light" >
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
 
@@ -39,10 +39,6 @@
 
                 <data android:mimeType="audio/*" />
             </intent-filter>
-        </activity>
-        <activity
-            android:name=".activities.ShareControlPointActivity"
-            android:theme="@android:style/Theme.Holo" >
         </activity>
 
         <service android:name=".activities.ShareHttpServer" />

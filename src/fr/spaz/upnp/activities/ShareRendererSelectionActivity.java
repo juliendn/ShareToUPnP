@@ -34,7 +34,6 @@ import com.actionbarsherlock.app.SherlockFragmentActivity;
 import fr.spaz.upnp.R;
 import fr.spaz.upnp.fragments.ShareControlFragment;
 import fr.spaz.upnp.fragments.ShareRendererSelectionFragment;
-import fr.spaz.upnp.upnp.UPnPBrowseRegistryListener;
 import fr.spaz.upnp.upnp.UPnPDeviceDisplay;
 import fr.spaz.upnp.upnp.UPnPService;
 import fr.spaz.upnp.utils.NanoHTTPD;
@@ -52,46 +51,40 @@ public class ShareRendererSelectionActivity extends SherlockFragmentActivity imp
 	private NanoHTTPD mHttpd;
 	private String mPath;
 
+	private Device<?, ?, ?> mCurrentDevice;
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState)
 	{
-		super.onCreate(savedInstanceState);		
+		super.onCreate(savedInstanceState);
 		requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 		setContentView(R.layout.main);
 
 		final Bundle callBundle = getIntent().getExtras();
 		final Uri uri = (Uri) callBundle.get(Intent.EXTRA_STREAM);
-		Log.d(TAG, "uri: " + uri.toString());
+		Log.i(TAG, "uri: " + uri.toString());
 
-		// Get file path
-		final String[] proj = {MediaStore.MediaColumns.DATA, MediaStore.MediaColumns.MIME_TYPE};
-		final Cursor cursor = getContentResolver().query(uri, proj, null, null, null);
-		if (cursor.moveToFirst())
+		if (null != uri && uri.getScheme().startsWith("content"))
 		{
-			mPath = cursor.getString(cursor.getColumnIndex(MediaStore.MediaColumns.DATA));
-			// final String mimetype = cursor.getString(cursor.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE));
-			try
+			// Get file path
+			final String[] proj = {MediaStore.MediaColumns.DATA, MediaStore.MediaColumns.MIME_TYPE};
+			final Cursor cursor = getContentResolver().query(uri, proj, null, null, null);
+			if (cursor.moveToFirst())
 			{
-				mHttpd = new NanoHTTPD(0, new File("/"));
+				mPath = cursor.getString(cursor.getColumnIndex(MediaStore.MediaColumns.DATA));
+				// final String mimetype = cursor.getString(cursor.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE));
+
 			}
-			catch (IOException e)
+			if (null != cursor)
 			{
-				e.printStackTrace();
+				cursor.close();
 			}
 		}
-		if (null != cursor)
+		else
 		{
-			cursor.close();
+			mPath = uri.toString();
 		}
 
-		// Init
-		mServiceConnection = new UpnpBrowseServiceConnection();
-
-		// Start upnp browse service
-		Intent intent = new Intent(this, UPnPService.class);
-		getApplicationContext().bindService(intent, mServiceConnection, Context.BIND_AUTO_CREATE);
-
-		// Http service
 		try
 		{
 			mHttpd = new NanoHTTPD(0, new File("/"));
@@ -100,10 +93,13 @@ public class ShareRendererSelectionActivity extends SherlockFragmentActivity imp
 		{
 			e.printStackTrace();
 		}
-//		
-//		FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
-//		ft.replace(R.id.content, new RendererSelectionFragment());
-//		ft.commit();
+
+		// Init
+		mServiceConnection = new UpnpBrowseServiceConnection();
+
+		// Start upnp browse service
+		Intent intent = new Intent(this, UPnPService.class);
+		getApplicationContext().bindService(intent, mServiceConnection, Context.BIND_AUTO_CREATE);
 	}
 
 	@Override
@@ -125,17 +121,9 @@ public class ShareRendererSelectionActivity extends SherlockFragmentActivity imp
 	}
 
 	@Override
-	public void setCurrentRenderer(UPnPDeviceDisplay device)
+	public Device<?, ?, ?> getCurrentRenderer()
 	{
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public UPnPDeviceDisplay detCurrentRenderer()
-	{
-		// TODO Auto-generated method stub
-		return null;
+		return mCurrentDevice;
 	}
 
 	@Override
@@ -145,24 +133,26 @@ public class ShareRendererSelectionActivity extends SherlockFragmentActivity imp
 		{
 			if (null != mUpnpService)
 			{
-				UPnPDeviceDisplay deviceDisplay = (UPnPDeviceDisplay) listview.getItemAtPosition(position);
-				Device<?, ?, ?> renderer = deviceDisplay.getDevice();
+				final UPnPDeviceDisplay deviceDisplay = (UPnPDeviceDisplay) listview.getItemAtPosition(position);
+				final Device<?, ?, ?> renderer = deviceDisplay.getDevice();
+				final Service<?, ?> avTransportService = renderer.findService(new UDAServiceType("AVTransport"));
 
-				final Service<?, ?> avTransportService = renderer.findService(new UDAServiceType("AVTransport", 1));
 				if (null != avTransportService)
 				{
-					Log.d(TAG, "launch setAVTransportURI");
+					
+					// execute setAvTransportURI
+					Log.i(TAG, "launch setAVTransportURI");
 					final String url = String.format("http://%s:%d%s", NetworkUtils.getIp(getBaseContext()), mHttpd.getPort(), mPath);
-					Log.d(TAG, "url: " + url);
+					Log.i(TAG, "url: " + url);
 					mUpnpService.getControlPoint().execute(new SetAVTransportURI(new UnsignedIntegerFourBytes(0), avTransportService, url, "NO METADATA")
 					{
 						@SuppressWarnings("rawtypes")
 						@Override
 						public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg)
 						{
-							Log.d(TAG, "setAVTransportURI failure");
-							Log.d(TAG, "invocation: " + invocation.getFailure().getMessage());
-							// Log.d(TAG, "operation: " + operation.getStatusCode() + " " + operation.getStatusMessage());
+							Log.i(TAG, "setAVTransportURI failure");
+							Log.i(TAG, "invocation: " + invocation.getFailure().getMessage());
+							// Log.i(TAG, "operation: " + operation.getStatusCode() + " " + operation.getStatusMessage());
 						}
 
 						@SuppressWarnings("rawtypes")
@@ -171,24 +161,26 @@ public class ShareRendererSelectionActivity extends SherlockFragmentActivity imp
 						{
 							super.success(invocation);
 
-							Log.d(TAG, "setAVTransportURI success");
-							Log.d(TAG, "launch play");
+							Log.i(TAG, "setAVTransportURI success");
+							Log.i(TAG, "launch play");
 							mUpnpService.getControlPoint().execute(new Play(new UnsignedIntegerFourBytes(0), avTransportService, "1")
 							{
 								@Override
 								public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg)
 								{
-									Log.d(TAG, "play failure");
-									Log.d(TAG, "invocation: " + invocation.getFailure().getMessage());
-									// Log.d(TAG, "operation: " + operation.getStatusCode() + " " + operation.getStatusMessage());
+									Log.i(TAG, "play failure");
+									Log.i(TAG, "invocation: " + invocation.getFailure().getMessage());
+									// Log.i(TAG, "operation: " + operation.getStatusCode() + " " + operation.getStatusMessage());
 								}
 
 								@Override
 								public void success(ActionInvocation invocation)
 								{
 									super.success(invocation);
-									Log.d(TAG, "play success");
-									
+									Log.i(TAG, "play success");
+
+									mCurrentDevice = renderer;
+
 									FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
 									ft.replace(R.id.content, new ShareControlFragment());
 									ft.commit();
@@ -202,7 +194,7 @@ public class ShareRendererSelectionActivity extends SherlockFragmentActivity imp
 					throw new UPnPException("No AVTransportService found");
 				}
 
-				// Log.d(TAG, "start ControlPointActivity");
+				// Log.i(TAG, "start ControlPointActivity");
 				// Intent intent = new Intent(this, ShareControlPointActivity.class);
 				//
 				// intent.setType(getIntent().getType());
@@ -223,23 +215,10 @@ public class ShareRendererSelectionActivity extends SherlockFragmentActivity imp
 	private class UpnpBrowseServiceConnection implements ServiceConnection
 	{
 
-		UPnPBrowseRegistryListener mListener;
-
-		public UpnpBrowseServiceConnection(UPnPBrowseRegistryListener listener)
-		{
-			mListener = listener;
-		}
-
-		public UpnpBrowseServiceConnection()
-		{
-			mListener = null;
-		}
-
 		@Override
 		public void onServiceConnected(ComponentName className, IBinder service)
 		{
 			mUpnpService = (AndroidUpnpService) service;
-
 
 			FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
 			ft.replace(R.id.content, new ShareRendererSelectionFragment());

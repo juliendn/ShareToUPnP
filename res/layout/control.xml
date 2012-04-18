@@ -9,30 +9,48 @@
         android:layout_height="wrap_content"
         android:layout_alignParentLeft="true"
         android:layout_alignParentRight="true"
-        android:layout_alignParentTop="true" >
+        android:layout_alignParentTop="true"
+        android:layout_margin="15dp"
+        android:gravity="center_horizontal" >
+
+        <ImageButton
+            android:id="@+id/prev"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@null"
+            android:src="@drawable/av_previous" />
 
         <ImageButton
             android:contentDescription="@null"
-            android:id="@+id/imageButton1"
+            android:id="@+id/play"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:src="@android:drawable/ic_media_play" />
+            android:src="@drawable/av_play" />
 
         <ImageButton
             android:contentDescription="@null"
-            android:id="@+id/imageButton2"
+            android:id="@+id/stop"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:src="@android:drawable/ic_media_pause" />
+            android:src="@drawable/av_stop" />
+
+        <ImageButton
+            android:id="@+id/next"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@null"
+            android:src="@drawable/av_next" />
+
     </LinearLayout>
 
     <SeekBar
-        android:id="@+id/seekBar1"
+        android:id="@+id/seek"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentLeft="true"
+        android:max="3600"
         android:layout_below="@+id/linearLayout1" />
 
 </RelativeLayout>

@@ -30,7 +30,7 @@ public class SharePrepareForConnection extends PrepareForConnection
 	@Override
 	public void received(ActionInvocation invocation, int connectionID, int rcsID, int avTransportID)
 	{
-		Log.d(TAG, "received");
+		Log.i(TAG, "received");
 		// TODO: store rcsID
 	}
 
@@ -38,7 +38,7 @@ public class SharePrepareForConnection extends PrepareForConnection
 	@Override
 	public void failure(ActionInvocation invocation, UpnpResponse operation, String defaultMsg)
 	{
-		Log.d(TAG, "failure");
+		Log.i(TAG, "failure");
 	}
 
 }

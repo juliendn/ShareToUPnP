@@ -1,12 +1,10 @@
 package fr.spaz.upnp.activities;
 
 import org.teleal.cling.android.AndroidUpnpService;
-
-import fr.spaz.upnp.upnp.UPnPDeviceDisplay;
+import org.teleal.cling.model.meta.Device;
 
 public interface IRenderSelection
 {
 	public AndroidUpnpService getUPnPService();
-	public void setCurrentRenderer(UPnPDeviceDisplay device);
-	public UPnPDeviceDisplay detCurrentRenderer();
+	public Device<?, ?, ?> getCurrentRenderer();
 }

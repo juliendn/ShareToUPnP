@@ -12,14 +12,14 @@ public class UPnPService extends AndroidUpnpServiceImpl
 	@Override
 	public void onCreate()
 	{
-		Log.d(TAG, "onCreate");
+		Log.i(TAG, "onCreate");
 		super.onCreate();
 	}
 
 	@Override
 	public void onDestroy()
 	{
-		Log.d(TAG, "onCreate");
+		Log.i(TAG, "onCreate");
 		super.onDestroy();
 	}
 
