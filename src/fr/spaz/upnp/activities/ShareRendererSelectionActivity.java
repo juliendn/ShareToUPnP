@@ -38,7 +38,6 @@ import fr.spaz.upnp.upnp.UPnPDeviceDisplay;
 import fr.spaz.upnp.upnp.UPnPService;
 import fr.spaz.upnp.utils.NanoHTTPD;
 import fr.spaz.upnp.utils.NetworkUtils;
-import fr.spaz.upnp.utils.UPnPException;
 
 public class ShareRendererSelectionActivity extends SherlockFragmentActivity implements IRenderSelection, OnItemClickListener
 {
